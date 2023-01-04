@@ -21,7 +21,7 @@ public class Game1 : Game
     private const float Speed = 60f;
     private readonly Random random = new();
     private readonly QuadTree quadTree = new(0, 0, VirtualViewWidth, VirtualViewHeight);
-    private readonly HashSet<Collider> potentialPlayerCollisions = new();
+    private readonly List<Collider> potentialPlayerCollisions = new();
 
     public Game1()
     {
@@ -45,7 +45,7 @@ public class Game1 : Game
 
         player = new Collider(0, 0, textureAtlas.TileSize * 2, textureAtlas.TileSize * 2);
 
-        for (var i = 0; i < 10000; i++)
+        for (var i = 0; i < 100000; i++)
         {
             enemies.Add(new Collider(random.NextSingle() * VirtualViewWidth, random.NextSingle() * VirtualViewHeight, textureAtlas.TileSize, textureAtlas.TileSize));
         }

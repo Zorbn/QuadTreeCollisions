@@ -1,26 +1,26 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Microsoft.Xna.Framework;
 
 namespace QuadTreeCollisions;
 
 public struct Quad
 {
-    private const int PreferredLen = 10;
-    private const int MaxLen = PreferredLen * 2;
-    private const int MaxLevel = 3;
-    private readonly Collider[] containedColliders = new Collider[MaxLen];
-    private int containedColliderCount = 0;
+    public const int PreferredLen = 10;
+    public List<Collider> ContainedColliders;
+    public const int MaxLevel = 3;
     private readonly int level;
-    private Rectangle rectangle;
+    private readonly Rectangle rectangle;
     private Quad[] children = null;
     
-    public Quad(Rectangle newRectangle, int level)
+    public Quad(Rectangle newRectangle, int level, QuadTree tree)
     {
+        ContainedColliders = tree.GetColliderArray();
         rectangle = newRectangle;
         this.level = level;
     }
 
-    public void Add(Collider collider)
+    public void Add(Collider collider, QuadTree tree)
     {
         bool hasChildren = children is not null;
         
@@ -31,21 +31,17 @@ public struct Quad
             {
                 if (!collider.Intersects(children[i].rectangle)) continue;
                 
-                children[i].Add(collider);
+                children[i].Add(collider, tree);
             }
 
             return;
         }
 
         // No children, either this node needs to split or it can contain the rectangle.
-        if (level == MaxLevel || containedColliderCount <= PreferredLen)
+        if (level == MaxLevel || ContainedColliders.Count <= PreferredLen)
         {
             // Hold this rectangle.
-            if (containedColliderCount < MaxLen)
-            {
-                containedColliders[containedColliderCount] = collider;
-                containedColliderCount++;
-            }
+            ContainedColliders.Add(collider);
         }
         else // This node has no children, isn't at max level, and is at full capacity, so try to split it.
         {
@@ -54,34 +50,33 @@ public struct Quad
             int childLevel = level + 1;
             int childWidth = rectangle.Width / 2;
             int childHeight = rectangle.Height / 2;
-            children[0] = new Quad(new Rectangle(rectangle.X, rectangle.Y, childWidth, childHeight), childLevel);
-            children[1] = new Quad(new Rectangle(rectangle.X + childWidth, rectangle.Y, childWidth, childHeight), childLevel);
-            children[2] = new Quad(new Rectangle(rectangle.X, rectangle.Y + childHeight, childWidth, childHeight), childLevel);
-            children[3] = new Quad(new Rectangle(rectangle.X + childWidth, rectangle.Y + childHeight, childWidth, childHeight), childLevel);
-
-            for (int i = containedColliderCount - 1; i >= 0; i--)
+            children[0] = new Quad(new Rectangle(rectangle.X, rectangle.Y, childWidth, childHeight), childLevel, tree);
+            children[1] = new Quad(new Rectangle(rectangle.X + childWidth, rectangle.Y, childWidth, childHeight), childLevel, tree);
+            children[2] = new Quad(new Rectangle(rectangle.X, rectangle.Y + childHeight, childWidth, childHeight), childLevel, tree);
+            children[3] = new Quad(new Rectangle(rectangle.X + childWidth, rectangle.Y + childHeight, childWidth, childHeight), childLevel, tree);
+            
+            foreach (Collider containedCollider in ContainedColliders)
             {
                 for (var j = 0; j < 4; j++)
                 {
-                    if (!containedColliders[i].Intersects(children[j].rectangle)) continue;
-                
-                    children[j].Add(containedColliders[i]);
+                    if (!containedCollider.Intersects(children[j].rectangle)) continue;
+                    children[j].Add(containedCollider, tree);
                 }
             }
-
-            containedColliderCount = 0;
+            
+            ContainedColliders.Clear();
 
             for (var i = 0; i < 4; i++)
             {
                 if (!collider.Intersects(children[i].rectangle)) continue;
                 
-                children[i].Add(collider);
+                children[i].Add(collider, tree);
                 return;
             }
         }
     }
 
-    public void GetPotentialCollisions(HashSet<Collider> list, Collider collider)
+    public void GetPotentialCollisions(List<Collider> list, Collider collider)
     {
         if (children is null) return;
         
@@ -95,7 +90,7 @@ public struct Quad
         AddIntersectingChildren(list, collider);
     }
 
-    private void AddIntersectingChildren(HashSet<Collider> list, Collider collider)
+    private void AddIntersectingChildren(List<Collider> list, Collider collider)
     {
         if (children is null) return;
 
@@ -103,9 +98,9 @@ public struct Quad
         {
             if (!collider.Intersects(children[i].rectangle)) continue;
             
-            for (var j = 0; j < children[i].containedColliderCount; j++)
+            for (var j = 0; j < children[i].ContainedColliders.Count; j++)
             {
-                list.Add(children[i].containedColliders[j]);
+                list.Add(children[i].ContainedColliders[j]);
             }
             
             children[i].AddIntersectingChildren(list, collider);
@@ -114,7 +109,7 @@ public struct Quad
 
     public void Clear()
     {
-        containedColliderCount = 0;
+        ContainedColliders.Clear();
 
         if (children is null) return;
 
@@ -130,18 +125,28 @@ public struct Quad
 public class QuadTree
 {
     private Quad root;
+    private readonly List<Collider>[] colliderArrayCache;
+    private int colliderArrayCount;
 
     public QuadTree(int x, int y, int width, int height)
     {
-        root = new Quad(new Rectangle(x, y, width, height), 0);
+        var colliderCacheCount = (int)Math.Pow(5, Quad.MaxLevel);
+        colliderArrayCache = new List<Collider>[colliderCacheCount];
+        for (var i = 0; i < colliderCacheCount; i++)
+        {
+            colliderArrayCache[i] = new List<Collider>();
+            colliderArrayCache[i].EnsureCapacity(Quad.PreferredLen);
+        }
+        
+        root = new Quad(new Rectangle(x, y, width, height), 0, this);
     }
     
     public void Add(Collider collider)
     {
-        root.Add(collider);
+        root.Add(collider, this);
     }
 
-    public void GetPotentialCollisions(HashSet<Collider> list, Collider collider)
+    public void GetPotentialCollisions(List<Collider> list, Collider collider)
     {
         root.GetPotentialCollisions(list, collider);
     }
@@ -149,5 +154,12 @@ public class QuadTree
     public void Clear()
     {
         root.Clear();
+        colliderArrayCount = 0;
+        root.ContainedColliders = GetColliderArray();
+    }
+
+    public List<Collider> GetColliderArray()
+    {
+        return colliderArrayCache[colliderArrayCount++];
     }
 }
