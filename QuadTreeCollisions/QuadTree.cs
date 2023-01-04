@@ -8,8 +8,8 @@ public struct Quad
     private const int PreferredLen = 10;
     private const int MaxLen = PreferredLen * 2;
     private const int MaxLevel = 3;
-    private readonly Rectangle[] containedRectangles = new Rectangle[MaxLen];
-    private int containedRectangleCount = 0;
+    private readonly Collider[] containedColliders = new Collider[MaxLen];
+    private int containedColliderCount = 0;
     private readonly int level;
     private Rectangle rectangle;
     private Quad[] children = null;
@@ -20,7 +20,7 @@ public struct Quad
         this.level = level;
     }
 
-    public void Add(Rectangle newRectangle)
+    public void Add(Collider collider)
     {
         bool hasChildren = children is not null;
         
@@ -29,22 +29,22 @@ public struct Quad
             // Already has children, try to add the rectangle to those children instead.
             for (var i = 0; i < 4; i++)
             {
-                if (!children[i].rectangle.Intersects(newRectangle)) continue;
+                if (!collider.Intersects(children[i].rectangle)) continue;
                 
-                children[i].Add(newRectangle);
+                children[i].Add(collider);
             }
 
             return;
         }
 
         // No children, either this node needs to split or it can contain the rectangle.
-        if (level == MaxLevel || containedRectangleCount <= PreferredLen)
+        if (level == MaxLevel || containedColliderCount <= PreferredLen)
         {
             // Hold this rectangle.
-            if (containedRectangleCount < MaxLen)
+            if (containedColliderCount < MaxLen)
             {
-                containedRectangles[containedRectangleCount] = newRectangle;
-                containedRectangleCount++;
+                containedColliders[containedColliderCount] = collider;
+                containedColliderCount++;
             }
         }
         else // This node has no children, isn't at max level, and is at full capacity, so try to split it.
@@ -59,62 +59,62 @@ public struct Quad
             children[2] = new Quad(new Rectangle(rectangle.X, rectangle.Y + childHeight, childWidth, childHeight), childLevel);
             children[3] = new Quad(new Rectangle(rectangle.X + childWidth, rectangle.Y + childHeight, childWidth, childHeight), childLevel);
 
-            for (int i = containedRectangleCount - 1; i >= 0; i--)
+            for (int i = containedColliderCount - 1; i >= 0; i--)
             {
                 for (var j = 0; j < 4; j++)
                 {
-                    if (!children[j].rectangle.Intersects(containedRectangles[i])) continue;
+                    if (!containedColliders[i].Intersects(children[j].rectangle)) continue;
                 
-                    children[j].Add(containedRectangles[i]);
+                    children[j].Add(containedColliders[i]);
                 }
             }
 
-            containedRectangleCount = 0;
+            containedColliderCount = 0;
 
             for (var i = 0; i < 4; i++)
             {
-                if (!children[i].rectangle.Intersects(newRectangle)) continue;
+                if (!collider.Intersects(children[i].rectangle)) continue;
                 
-                children[i].Add(newRectangle);
+                children[i].Add(collider);
                 return;
             }
         }
     }
 
-    public void GetPotentialCollisions(HashSet<Rectangle> list, Rectangle newRectangle)
+    public void GetPotentialCollisions(HashSet<Collider> list, Collider collider)
     {
         if (children is null) return;
         
         for (var i = 0; i < 4; i++)
         {
-            if (!children[i].rectangle.Intersects(newRectangle)) continue;
+            if (!collider.Intersects(children[i].rectangle)) continue;
                 
-            children[i].GetPotentialCollisions(list, newRectangle);
+            children[i].GetPotentialCollisions(list, collider);
         }
 
-        AddIntersectingChildren(list, newRectangle);
+        AddIntersectingChildren(list, collider);
     }
 
-    private void AddIntersectingChildren(HashSet<Rectangle> list, Rectangle newRectangle)
+    private void AddIntersectingChildren(HashSet<Collider> list, Collider collider)
     {
         if (children is null) return;
 
         for (var i = 0; i < 4; i++) 
         {
-            if (!children[i].rectangle.Intersects(newRectangle)) continue;
+            if (!collider.Intersects(children[i].rectangle)) continue;
             
-            for (var j = 0; j < children[i].containedRectangleCount; j++)
+            for (var j = 0; j < children[i].containedColliderCount; j++)
             {
-                list.Add(children[i].containedRectangles[j]);
+                list.Add(children[i].containedColliders[j]);
             }
             
-            children[i].AddIntersectingChildren(list, newRectangle);
+            children[i].AddIntersectingChildren(list, collider);
         }
     }
 
     public void Clear()
     {
-        containedRectangleCount = 0;
+        containedColliderCount = 0;
 
         if (children is null) return;
 
@@ -136,14 +136,14 @@ public class QuadTree
         root = new Quad(new Rectangle(x, y, width, height), 0);
     }
     
-    public void Add(Rectangle rectangle)
+    public void Add(Collider collider)
     {
-        root.Add(rectangle);
+        root.Add(collider);
     }
 
-    public void GetPotentialCollisions(HashSet<Rectangle> list, Rectangle rectangle)
+    public void GetPotentialCollisions(HashSet<Collider> list, Collider collider)
     {
-        root.GetPotentialCollisions(list, rectangle);
+        root.GetPotentialCollisions(list, collider);
     }
 
     public void Clear()

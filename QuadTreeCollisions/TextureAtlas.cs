@@ -29,8 +29,7 @@ public class TextureAtlas
         var halfSize = new Vector2(srcRect.Width * 0.5f, srcRect.Height * 0.5f);
         Vector2 drawPos = (position + halfSize - camera.Position) * camera.Scale;
         // Round the position to prevent artifacts when drawing at subpixel offsets.
-        // drawPos.Round();
-        drawPos = new Vector2((int)drawPos.X, (int)drawPos.Y);
+        drawPos.Round();
         SpriteEffects spriteEffects = flipped ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         batch.Draw(texture, drawPos, srcRect, color, rotation, halfSize, size, spriteEffects, 0f);
     }

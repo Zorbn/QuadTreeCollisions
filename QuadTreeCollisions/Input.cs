@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Input;
 
-namespace GameClient;
+namespace QuadTreeCollisions;
 
 public class Input
 {
