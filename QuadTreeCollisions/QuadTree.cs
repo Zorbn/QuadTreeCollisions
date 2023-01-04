@@ -20,6 +20,32 @@ public struct Quad
         this.level = level;
     }
 
+    public void Remove(Collider collider)
+    {
+        var wasInChildren = false;
+        
+        if (children is not null)
+        {
+            for (var i = 0; i < 4; i++)
+            {
+                if (!collider.Intersects(children[i].rectangle)) continue;
+                
+                children[i].Remove(collider);
+                wasInChildren = true;
+            }
+        }
+
+        if (wasInChildren) return;
+
+        for (int i = containedColliders.Count - 1; i >= 0; i--)
+        {
+            if (containedColliders[i].Id != collider.Id) continue;
+            
+            containedColliders.RemoveAt(i);
+            break;
+        }
+    }
+
     public void Add(Collider collider, QuadTree tree)
     {
         bool hasChildren = children is not null;
@@ -46,10 +72,10 @@ public struct Quad
         else // This node has no children, isn't at max level, and is at full capacity, so try to split it.
         {
             // Split, move this node's contained rectangles into the new children.
-            children = tree.GetChildrenArray();
             int childLevel = level + 1;
             int childWidth = rectangle.Width / 2;
             int childHeight = rectangle.Height / 2;
+            children = tree.GetChildrenArray();
             children[0] = new Quad(new Rectangle(rectangle.X, rectangle.Y, childWidth, childHeight), childLevel, tree);
             children[1] = new Quad(new Rectangle(rectangle.X + childWidth, rectangle.Y, childWidth, childHeight), childLevel, tree);
             children[2] = new Quad(new Rectangle(rectangle.X, rectangle.Y + childHeight, childWidth, childHeight), childLevel, tree);
@@ -157,7 +183,12 @@ public class QuadTree
         
         root = new Quad(new Rectangle(x, y, width, height), 0, this);
     }
-    
+
+    public void Remove(Collider collider)
+    {
+        root.Remove(collider);
+    }
+
     public void Add(Collider collider)
     {
         root.Add(collider, this);
