@@ -71,7 +71,6 @@ public struct Quad
                 if (!collider.Intersects(children[i].rectangle)) continue;
                 
                 children[i].Add(collider, tree);
-                return;
             }
         }
     }
