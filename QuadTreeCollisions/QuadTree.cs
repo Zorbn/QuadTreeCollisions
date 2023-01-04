@@ -77,7 +77,11 @@ public struct Quad
 
     public void GetPotentialCollisions(List<Collider> list, Collider collider)
     {
-        if (children is null) return;
+        if (children is null)
+        {
+            list.AddRange(containedColliders);
+            return;
+        }
         
         for (var i = 0; i < 4; i++)
         {
