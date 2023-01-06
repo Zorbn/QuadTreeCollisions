@@ -104,7 +104,7 @@ public class Game1 : Game
         }
 
         potentialPlayerCollisions.Clear();
-        quadTree.GetPotentialCollisions(potentialPlayerCollisions, player);
+        quadTree.GetPotentialCollisions(potentialPlayerCollisions, player, false);
 
         foreach (Collider collider in potentialPlayerCollisions)
         {

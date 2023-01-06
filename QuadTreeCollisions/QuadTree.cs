@@ -101,11 +101,26 @@ public struct Quad
         }
     }
 
-    public void GetPotentialCollisions(List<Collider> list, Collider collider)
+    public void GetPotentialCollisions(List<Collider> list, Collider collider, HashSet<int> duplicateCheckSet, bool removeDuplicates)
     {
         if (children is null)
         {
-            list.AddRange(containedColliders);
+            if (removeDuplicates)
+            {
+                int count = containedColliders.Count;
+                for (var i = 0; i < count; i++)
+                {
+                    if (duplicateCheckSet.Add(containedColliders[i].Id))
+                    {
+                        list.Add(containedColliders[i]);
+                    }
+                }
+            }
+            else
+            {
+                list.AddRange(containedColliders);
+            }
+
             return;
         }
         
@@ -113,26 +128,38 @@ public struct Quad
         {
             if (!collider.Intersects(children[i].rectangle)) continue;
                 
-            children[i].GetPotentialCollisions(list, collider);
+            children[i].GetPotentialCollisions(list, collider, duplicateCheckSet, removeDuplicates);
         }
 
-        AddIntersectingChildren(list, collider);
+        AddIntersectingChildren(list, collider, duplicateCheckSet, removeDuplicates);
     }
 
-    private void AddIntersectingChildren(List<Collider> list, Collider collider)
+    private void AddIntersectingChildren(List<Collider> list, Collider collider, HashSet<int> duplicateCheckSet, bool removeDuplicates)
     {
         if (children is null) return;
 
         for (var i = 0; i < 4; i++) 
         {
             if (!collider.Intersects(children[i].rectangle)) continue;
-            
-            for (var j = 0; j < children[i].containedColliders.Count; j++)
+
+            if (removeDuplicates)
             {
-                list.Add(children[i].containedColliders[j]);
+                Quad child = children[i];
+                int count = child.containedColliders.Count;
+                for (var j = 0; j < count; j++)
+                {
+                    if (duplicateCheckSet.Add(child.containedColliders[j].Id))
+                    {
+                        list.Add(child.containedColliders[j]);
+                    }
+                }
             }
-            
-            children[i].AddIntersectingChildren(list, collider);
+            else
+            {
+                list.AddRange(children[i].containedColliders);
+            }
+
+            children[i].AddIntersectingChildren(list, collider, duplicateCheckSet, removeDuplicates);
         }
     }
 
@@ -159,6 +186,7 @@ public struct Quad
 public class QuadTree
 {
     private Quad root;
+    private readonly HashSet<int> duplicateCheckSet;
     private readonly List<Collider>[] colliderListCache;
     private readonly Quad[][] childrenArrayCache;
     private int usedColliderCacheCount;
@@ -182,6 +210,7 @@ public class QuadTree
         }
         
         root = new Quad(new Rectangle(x, y, width, height), 0, this);
+        duplicateCheckSet = new HashSet<int>();
     }
 
     public void Remove(Collider collider)
@@ -194,9 +223,11 @@ public class QuadTree
         root.Add(collider, this);
     }
 
-    public void GetPotentialCollisions(List<Collider> list, Collider collider)
+    public void GetPotentialCollisions(List<Collider> list, Collider collider, bool removeDuplicates)
     {
-        root.GetPotentialCollisions(list, collider);
+        list.Clear();
+        if (removeDuplicates) duplicateCheckSet.Clear();
+        root.GetPotentialCollisions(list, collider, duplicateCheckSet, removeDuplicates);
     }
 
     public void Clear()
